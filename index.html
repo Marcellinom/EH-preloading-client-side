@@ -10,25 +10,31 @@
     </style>
 </head>
 <body>
+    <input id="eh-link" placeholder="e-h link"><button id="search" onclick="start(document.getElementById('eh-link').value)">Search</button>
     <div id="gdt"></div>
     <script>
+        var galleries = []
         async function run(url) {
             let res = await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url))
             let text = await res.json()
             const dom = new DOMParser()
             let parsed = dom.parseFromString(text.contents.replace(/\\./g, ""), 'text/html')
             let pages = parsed.getElementsByClassName('gdtm')
+            galleries = [...galleries, ...pages]
 
-            let tokens = []
-            for (let i = 0; i < pages.length; i++) tokens.push(pages[i].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[0])
-            id = pages[0].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[1].replace('-1','')
+            let token = ''
+            for (let i = 0; i < pages.length; i++) token += `${pages[i].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[0]},`
+            return token
+        }
 
-            let base_href = `/page.html?token=${tokens.join(',')}&id=${id}&max=${pages.length}`
-            for (let i = 0; i < pages.length; i++) {
-                pages[i].childNodes[0].childNodes[0].href = `${base_href}&page=${i+1}`
-                document.getElementById('gdt').appendChild(pages[i].childNodes[0])
-                // let base_page = pages[i].childNodes[0].childNodes[0].href;
-                // load_img(base_page)
+        function write(tokens, max)
+        {
+            let id = galleries[0].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[1].replace('-1','')
+
+            let base_href = `/page.html?token=${tokens.slice(0,-1)}&id=${id}&max=${max}`
+            for (let i = 0; i < galleries.length; i++) {
+                galleries[i].childNodes[0].childNodes[0].href = `${base_href}&page=${i+1}`
+                document.getElementById('gdt').appendChild(galleries[i].childNodes[0])
             }
         }
 
@@ -45,10 +51,10 @@
                 })
             })
             let info = await res.json()
-            for (let i = 0; i < Math.ceil(info.gmetadata[0].filecount / 40); i++) await run(`${url}?p=${i}`)
+            let token = ''
+            for (let i = 0; i < Math.ceil(info.gmetadata[0].filecount / 40); i++) token += await run(`${url}?p=${i}`)
+            write(token, info.gmetadata[0].filecount)
         }
-    
-        start('https://e-hentai.org/g/2006270/f4f5535fd1')
     </script>
 </body>
 </html>

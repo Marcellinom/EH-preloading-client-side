@@ -11,8 +11,11 @@
 </head>
 <body>
     <div id="gdt"></div>
+    <div>
+        <span id="curr"></span> / <span id="max"></span>
+    </div>
     <script>
-        var next_img
+        var next_img = []
         function wait(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
@@ -30,32 +33,79 @@
         }
 
         const base_url = 'https://e-hentai.org/s'
-        async function run(id, tokens, page, max)
+        async function start(id, tokens, page, max)
         {
             page = Number(page)
             document.body.appendChild(await get_img_dom(`${base_url}/${tokens[page-1]}/${id}-${page}`))
-            // if (page - 1 > 0) var prev = await get_img_dom(`${base_url}/${current}/${id}-${page-1}`)
-            if (page + 1 != max) next_img = await get_img_dom(`${base_url}/${tokens[page]}/${id}-${page+1}`)
+            if (page + 1 != max) next_img[page] = await get_img_dom(`${base_url}/${tokens[page]}/${id}-${page+1}`)
+        }
+
+        async function hoard(id, tokens, page, max)
+        {
+            page = Number(page)
+            max = Number(max)
+            var pageForward = page, pageBackwards = page
+            var forward = setInterval(async function() {
+                console.log(pageForward, max)
+                if (pageForward <= max) {
+                    if (next_img[pageForward-1] !== undefined) {
+                        pageForward++
+                        return
+                    }
+                    next_img[pageForward-1] = await get_img_dom(`${base_url}/${tokens[pageForward-1]}/${id}-${pageForward}`)
+                    pageForward++
+                } else {
+                    clearInterval(forward)
+                }
+            }, 2000);
+            var backwards = setInterval(async function() {
+                console.log(pageBackwards, max)
+                if (pageBackwards > 0) {
+                    if (next_img[pageBackwards-1] !== undefined) {
+                        pageBackwards--
+                        return
+                    }
+                    next_img[pageBackwards-1] = await get_img_dom(`${base_url}/${tokens[pageBackwards-1]}/${id}-${pageBackwards}`)
+                    pageBackwards--
+                } else {
+                    clearInterval(backwards)
+                }
+            }, 5000);
         }
 
         const params = new Proxy(new URLSearchParams(window.location.search), {
             get: (searchParams, prop) => searchParams.get(prop),
         });
         let tokens = params.token.split(',')
-        run(params.id, tokens, params.page, params.max)
 
+        document.getElementById('curr').innerText = params.page
+        document.getElementById('max').innerText = params.max
+
+        start(params.id, tokens, params.page, params.max)
+        hoard(params.id, tokens, params.page, params.max)
+        
         document.onkeydown = function (event) {
             const current_param = new URLSearchParams(window.location.search);
+            let page = Number(current_param.get('page'))
             if (event.key === 'ArrowRight') {
                 if (current_param.get('page') == current_param.get('max')) return
-                if (next_img !== undefined) {
-                    document.body.innerHTML = '';
-                    document.body.appendChild(next_img)
-                    current_param.set('page', Number(current_param.get('page')) + 1)
+                if (next_img[page-1] !== undefined) {
+                    document.body.innerHTML = `<div><span id="curr"></span> / <span id="max">${params.max}</span></div>`;
+                    document.body.appendChild(next_img[page-1])
+                    current_param.set('page', page + 1)
                     history.replaceState(null, null, "?"+current_param.toString());
                 }
             }
-            run(params.id, tokens, current_param.get('page'), params.max)
+            if (event.key === 'ArrowLeft') {
+                if (page == 0) return
+                if (next_img[page-2] !== undefined) {
+                    document.body.innerHTML = `<div><span id="curr"></span> / <span id="max">${params.max}</span></div>`;
+                    document.body.appendChild(next_img[page-2])
+                    current_param.set('page', page - 1)
+                    history.replaceState(null, null, "?"+current_param.toString());
+                }
+            }
+            document.getElementById('curr').innerText = current_param.get('page')
         };
     </script>
 </body>
