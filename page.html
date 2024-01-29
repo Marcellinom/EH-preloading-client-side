@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        #gdt{background:#EDEBDF;border:1px solid #5C0D12;text-align:left;min-width:720px;max-width:1200px;margin:0 auto;clear:both;padding:5px;border-radius:9px}
+        #gdt div{text-align:center;float:left;margin:2px 0px;width:120px}
+    </style>
+</head>
+<body>
+    <div id="gdt"></div>
+    <script>
+        var next_img
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function get_img_dom(url) {
+            console.log(url)
+            let res = await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url))
+            let text = await res.json()
+            const dom = new DOMParser()
+            let parsed = dom.parseFromString(text.contents.replace(/\\./g, ""), 'text/html')
+            let img = parsed.getElementById('img').src
+            let image = document.createElement('img')
+            image.src = img
+            return image
+        }
+
+        const base_url = 'https://e-hentai.org/s'
+        async function run(id, tokens, page, max)
+        {
+            page = Number(page)
+            document.body.appendChild(await get_img_dom(`${base_url}/${tokens[page-1]}/${id}-${page}`))
+            // if (page - 1 > 0) var prev = await get_img_dom(`${base_url}/${current}/${id}-${page-1}`)
+            if (page + 1 != max) next_img = await get_img_dom(`${base_url}/${tokens[page]}/${id}-${page+1}`)
+        }
+
+        const params = new Proxy(new URLSearchParams(window.location.search), {
+            get: (searchParams, prop) => searchParams.get(prop),
+        });
+        let tokens = params.token.split(',')
+        run(params.id, tokens, params.page, params.max)
+
+        document.onkeydown = function (event) {
+            const current_param = new URLSearchParams(window.location.search);
+            if (event.key === 'ArrowRight') {
+                if (current_param.get('page') == current_param.get('max')) return
+                if (next_img !== undefined) {
+                    document.body.innerHTML = '';
+                    document.body.appendChild(next_img)
+                    current_param.set('page', Number(current_param.get('page')) + 1)
+                    history.replaceState(null, null, "?"+current_param.toString());
+                }
+            }
+            run(params.id, tokens, current_param.get('page'), params.max)
+        };
+    </script>
+</body>
+</html>
