@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        #gdt{background:#EDEBDF;border:1px solid #5C0D12;text-align:left;min-width:720px;max-width:1200px;margin:0 auto;clear:both;padding:5px;border-radius:9px}
+        #gdt div{text-align:center;float:left;margin:2px 0px;width:120px}
+    </style>
+</head>
+<body>
+    <div id="gdt"></div>
+    <script>
+        async function run(url) {
+            let res = await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url))
+            let text = await res.json()
+            const dom = new DOMParser()
+            let parsed = dom.parseFromString(text.contents.replace(/\\./g, ""), 'text/html')
+            let pages = parsed.getElementsByClassName('gdtm')
+
+            let tokens = []
+            for (let i = 0; i < pages.length; i++) tokens.push(pages[i].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[0])
+            id = pages[0].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[1].replace('-1','')
+
+            let base_href = `/page.html?token=${tokens.join(',')}&id=${id}&max=${pages.length}`
+            for (let i = 0; i < pages.length; i++) {
+                pages[i].childNodes[0].childNodes[0].href = `${base_href}&page=${i+1}`
+                document.getElementById('gdt').appendChild(pages[i].childNodes[0])
+                // let base_page = pages[i].childNodes[0].childNodes[0].href;
+                // load_img(base_page)
+            }
+        }
+
+        async function start(url) {
+            if (url[url.length-1] === '/' || url[url.length-1] === '\\') url[url.length-1] = ''
+            let ids = url.split('/g/')[1]
+            let res = await fetch("https://api.e-hentai.org/api.php", {
+                method: 'post',
+                body: JSON.stringify({
+                "method": "gdata",
+                "gidlist": [
+                    ids.split('/')
+                ]
+                })
+            })
+            let info = await res.json()
+            for (let i = 0; i < Math.ceil(info.gmetadata[0].filecount / 40); i++) await run(`${url}?p=${i}`)
+        }
+    
+        start('https://e-hentai.org/g/2006270/f4f5535fd1')
+    </script>
+</body>
+</html>
