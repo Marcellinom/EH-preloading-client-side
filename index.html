@@ -31,7 +31,7 @@
         {
             let id = galleries[0].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[1].replace('-1','')
 
-            let base_href = `/page.html?token=${tokens.slice(0,-1)}&id=${id}&max=${max}`
+            let base_href = `/page?token=${tokens.slice(0,-1)}&id=${id}&max=${max}`
             for (let i = 0; i < galleries.length; i++) {
                 galleries[i].childNodes[0].childNodes[0].href = `${base_href}&page=${i+1}`
                 document.getElementById('gdt').appendChild(galleries[i].childNodes[0])
