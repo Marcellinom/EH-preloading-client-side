@@ -3,38 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>EH-Viewer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"/>
+
     <style>
         #gdt{background:#EDEBDF;border:1px solid #5C0D12;text-align:left;min-width:720px;max-width:1200px;margin:0 auto;clear:both;padding:5px;border-radius:9px}
         #gdt div{text-align:center;float:left;margin:2px 0px;width:120px}
+        .per-image:hover {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <input id="eh-link" placeholder="e-h link"><button id="search" onclick="start(document.getElementById('eh-link').value)">Search</button>
     <div id="gdt"></div>
-    <script>
-        var galleries = []
-        async function run(url) {
-            let res = await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url))
+
+    <script> 
+        function wait(delay){
+            return new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        function fetchRetry(url, delay, fetchOptions = {}) {
+            function onError(err) {
+                return wait(delay).then(() => fetchRetry(url, delay, fetchOptions));
+            }
+            return fetch(url,fetchOptions).catch(onError);
+        }
+        
+        var galleries = [], image_id = []
+        async function get_parsed(url) {
+            let res = await fetchRetry("https://api.allorigins.win/get?url="+encodeURIComponent(url), 5000)
             let text = await res.json()
             const dom = new DOMParser()
-            let parsed = dom.parseFromString(text.contents.replace(/\\./g, ""), 'text/html')
+            return dom.parseFromString(text.contents.replace(/\\./g, ""), 'text/html')
+        }
+
+        async function run(url) {
+            let parsed = await get_parsed(url)
             let pages = parsed.getElementsByClassName('gdtm')
             galleries = [...galleries, ...pages]
 
-            let token = ''
-            for (let i = 0; i < pages.length; i++) token += `${pages[i].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[0]},`
-            return token
+            for (let i = 0; i < pages.length; i++) image_id.push(pages[i].childNodes[0].childNodes[0].href.split('/s/')[1])
         }
 
-        function write(tokens, max)
+        async function get_img_dom(url) {
+            console.log(url)
+            let parsed = await get_parsed(url)
+            let img = parsed.getElementById('img').src
+            let image = document.createElement('img')
+            image.src = img
+            return image
+        }
+
+        async function hoard()
+        {
+            for (let i = 0; i < image_id.length; i++) {
+                let img = await get_img_dom(`https://e-hentai.org/s/${image_id[i]}`)
+                document.getElementById(`a-${i}`).setAttribute('data-src', img.src)
+                document.getElementById(`a-${i}`).setAttribute('data-caption', `page ${i+1} / ${image_id.length}`)
+                document.getElementById(`img-${i}`).setAttribute('src', img.src)
+            }
+        }
+
+        function write()
         {
             let id = galleries[0].childNodes[0].childNodes[0].href.split('/s/')[1].split('/')[1].replace('-1','')
 
-            let base_href = `${window.location.href}/page?token=${tokens.slice(0,-1)}&id=${id}&max=${max}`
+            // let base_href = `/page.html?token=${tokens.slice(0,-1)}&id=${id}&max=${max}`
             for (let i = 0; i < galleries.length; i++) {
-                galleries[i].childNodes[0].childNodes[0].href = `${base_href}&page=${i+1}`
-                document.getElementById('gdt').appendChild(galleries[i].childNodes[0])
+                // galleries[i].childNodes[0].childNodes[0].href = `${base_href}&page=${i+1}`
+                galleries[i].childNodes[0].childNodes[0].removeAttribute("href")
+                galleries[i].childNodes[0].childNodes[0].setAttribute('data-fancybox', "gallery")
+                // galleries[i].childNodes[0].childNodes[0].setAttribute('data-src', "https://lipsum.app/id/2/1600x1200") 
+                galleries[i].childNodes[0].childNodes[0].setAttribute('id', `a-${i}`)
+                galleries[i].childNodes[0].childNodes[0].innerHTML = ''
+                
+                let img = document.createElement('img')
+                img.style = galleries[i].childNodes[0].getAttribute('style')
+                img.setAttribute('src', "https://ehgt.org/g/blank.gif")
+                img.setAttribute('id', `img-${i}`)
+                img.setAttribute('class', 'per-image')
+                galleries[i].childNodes[0].childNodes[0].appendChild(img)
+
+                document.getElementById('gdt').appendChild(galleries[i].childNodes[0].childNodes[0])
             }
         }
 
@@ -51,10 +102,16 @@
                 })
             })
             let info = await res.json()
-            let token = ''
-            for (let i = 0; i < Math.ceil(info.gmetadata[0].filecount / 40); i++) token += await run(`${url}?p=${i}`)
-            write(token, info.gmetadata[0].filecount)
+            for (let i = 0; i < Math.ceil(info.gmetadata[0].filecount / 40); i++) await run(`${url}?p=${i}`)
+            write()
+            hoard()
         }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+    <script>
+        Fancybox.bind('[data-fancybox="gallery"]', {
+        //
+        });    
     </script>
 </body>
 </html>
